@@ -1,0 +1,346 @@
+{
+  "metadata": {
+    "model": "XGBoost",
+    "explainer": "TreeExplainer",
+    "n_samples": 500,
+    "n_features": 9,
+    "n_classes": 3,
+    "classes": [
+      "High",
+      "Low",
+      "Medium"
+    ],
+    "feature_names": [
+      "rainfall_7d_sum",
+      "rainfall_3d_avg",
+      "temperature_avg",
+      "temperature_trend",
+      "humidity_max",
+      "humidity_avg",
+      "rainfall_humidity_interaction",
+      "temperature_range",
+      "humidity_range"
+    ],
+    "generated_at": "2026-04-18T05:09:32.998385"
+  },
+  "profiles": {
+    "High": {
+      "class_label": "High",
+      "n_samples_analyzed": 163,
+      "top_features": [
+        {
+          "rank": 1,
+          "feature": "temperature_avg",
+          "importance": 3.974692,
+          "direction": "increases_risk",
+          "mean_shap_value": 3.63689
+        },
+        {
+          "rank": 2,
+          "feature": "humidity_avg",
+          "importance": 2.296,
+          "direction": "increases_risk",
+          "mean_shap_value": 2.054067
+        },
+        {
+          "rank": 3,
+          "feature": "rainfall_humidity_interaction",
+          "importance": 0.762396,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.178331
+        },
+        {
+          "rank": 4,
+          "feature": "rainfall_7d_sum",
+          "importance": 0.379495,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.076426
+        },
+        {
+          "rank": 5,
+          "feature": "rainfall_3d_avg",
+          "importance": 0.314219,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.123388
+        }
+      ],
+      "all_features": [
+        {
+          "rank": 1,
+          "feature": "temperature_avg",
+          "importance": 3.974692,
+          "direction": "increases_risk",
+          "mean_shap_value": 3.63689
+        },
+        {
+          "rank": 2,
+          "feature": "humidity_avg",
+          "importance": 2.296,
+          "direction": "increases_risk",
+          "mean_shap_value": 2.054067
+        },
+        {
+          "rank": 3,
+          "feature": "rainfall_humidity_interaction",
+          "importance": 0.762396,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.178331
+        },
+        {
+          "rank": 4,
+          "feature": "rainfall_7d_sum",
+          "importance": 0.379495,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.076426
+        },
+        {
+          "rank": 5,
+          "feature": "rainfall_3d_avg",
+          "importance": 0.314219,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.123388
+        },
+        {
+          "rank": 6,
+          "feature": "humidity_max",
+          "importance": 0.275889,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.233365
+        },
+        {
+          "rank": 7,
+          "feature": "temperature_range",
+          "importance": 0.148124,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.056221
+        },
+        {
+          "rank": 8,
+          "feature": "humidity_range",
+          "importance": 0.12008,
+          "direction": "decreases_risk",
+          "mean_shap_value": -0.017897
+        },
+        {
+          "rank": 9,
+          "feature": "temperature_trend",
+          "importance": 0.052344,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.0089
+        }
+      ]
+    },
+    "Low": {
+      "class_label": "Low",
+      "n_samples_analyzed": 162,
+      "top_features": [
+        {
+          "rank": 1,
+          "feature": "temperature_avg",
+          "importance": 3.459241,
+          "direction": "increases_risk",
+          "mean_shap_value": 2.929883
+        },
+        {
+          "rank": 2,
+          "feature": "humidity_avg",
+          "importance": 2.05859,
+          "direction": "increases_risk",
+          "mean_shap_value": 1.0969
+        },
+        {
+          "rank": 3,
+          "feature": "rainfall_humidity_interaction",
+          "importance": 0.46731,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.221828
+        },
+        {
+          "rank": 4,
+          "feature": "humidity_max",
+          "importance": 0.450592,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.182361
+        },
+        {
+          "rank": 5,
+          "feature": "rainfall_7d_sum",
+          "importance": 0.302528,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.128095
+        }
+      ],
+      "all_features": [
+        {
+          "rank": 1,
+          "feature": "temperature_avg",
+          "importance": 3.459241,
+          "direction": "increases_risk",
+          "mean_shap_value": 2.929883
+        },
+        {
+          "rank": 2,
+          "feature": "humidity_avg",
+          "importance": 2.05859,
+          "direction": "increases_risk",
+          "mean_shap_value": 1.0969
+        },
+        {
+          "rank": 3,
+          "feature": "rainfall_humidity_interaction",
+          "importance": 0.46731,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.221828
+        },
+        {
+          "rank": 4,
+          "feature": "humidity_max",
+          "importance": 0.450592,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.182361
+        },
+        {
+          "rank": 5,
+          "feature": "rainfall_7d_sum",
+          "importance": 0.302528,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.128095
+        },
+        {
+          "rank": 6,
+          "feature": "humidity_range",
+          "importance": 0.191776,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.066744
+        },
+        {
+          "rank": 7,
+          "feature": "temperature_range",
+          "importance": 0.129979,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.063993
+        },
+        {
+          "rank": 8,
+          "feature": "temperature_trend",
+          "importance": 0.129299,
+          "direction": "decreases_risk",
+          "mean_shap_value": -0.016237
+        },
+        {
+          "rank": 9,
+          "feature": "rainfall_3d_avg",
+          "importance": 0.084824,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.058209
+        }
+      ]
+    },
+    "Medium": {
+      "class_label": "Medium",
+      "n_samples_analyzed": 175,
+      "top_features": [
+        {
+          "rank": 1,
+          "feature": "humidity_avg",
+          "importance": 0.862544,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.817298
+        },
+        {
+          "rank": 2,
+          "feature": "temperature_avg",
+          "importance": 0.78589,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.651703
+        },
+        {
+          "rank": 3,
+          "feature": "humidity_max",
+          "importance": 0.114837,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.076692
+        },
+        {
+          "rank": 4,
+          "feature": "humidity_range",
+          "importance": 0.079074,
+          "direction": "decreases_risk",
+          "mean_shap_value": -0.004138
+        },
+        {
+          "rank": 5,
+          "feature": "rainfall_humidity_interaction",
+          "importance": 0.075263,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.027619
+        }
+      ],
+      "all_features": [
+        {
+          "rank": 1,
+          "feature": "humidity_avg",
+          "importance": 0.862544,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.817298
+        },
+        {
+          "rank": 2,
+          "feature": "temperature_avg",
+          "importance": 0.78589,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.651703
+        },
+        {
+          "rank": 3,
+          "feature": "humidity_max",
+          "importance": 0.114837,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.076692
+        },
+        {
+          "rank": 4,
+          "feature": "humidity_range",
+          "importance": 0.079074,
+          "direction": "decreases_risk",
+          "mean_shap_value": -0.004138
+        },
+        {
+          "rank": 5,
+          "feature": "rainfall_humidity_interaction",
+          "importance": 0.075263,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.027619
+        },
+        {
+          "rank": 6,
+          "feature": "temperature_range",
+          "importance": 0.06875,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.017601
+        },
+        {
+          "rank": 7,
+          "feature": "temperature_trend",
+          "importance": 0.068632,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.020355
+        },
+        {
+          "rank": 8,
+          "feature": "rainfall_3d_avg",
+          "importance": 0.063647,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.014152
+        },
+        {
+          "rank": 9,
+          "feature": "rainfall_7d_sum",
+          "importance": 0.047332,
+          "direction": "increases_risk",
+          "mean_shap_value": 0.015932
+        }
+      ]
+    }
+  }
+}

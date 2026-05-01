@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EPIDRA — Epidemic Risk Intelligence</title>
+  <meta name="description"
+    content="EPIDRA: AI-powered epidemic risk assessment for India with calibrated predictions and SHAP explainability." />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/@phosphor-icons/web@2.0.3"></script>
+
+  <style>
+    *,
+    *::before,
+    *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --font: 'Inter', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+      --bg: #0B1120;
+      --surface: #151E32;
+      --inset: #0F172A;
+      --surface-hover: rgba(255, 255, 255, 0.03);
+      --border: rgba(255,255,255,0.06);
+      --text: #F8FAFC;
+      --text-muted: #CBD5E1;
+      --accent: #0EA5E9;
+      --accent-dim: rgba(14, 165, 233, 0.12);
+      --high: #E11D48;
+      --high-bg: rgba(225, 29, 72, 0.1);
+      --medium: #D97706;
+      --medium-bg: rgba(217, 119, 6, 0.1);
+      --low: #059669;
+      --low-bg: rgba(5, 150, 105, 0.1);
+      --radius: 16px;
+      --radius-sm: 8px;
+      --shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+      --transition: 0.15s ease;
+    }
+
+    .light-theme {
+      --bg: #F8FAFC;
+      --surface: #FFFFFF;
+      --inset: #F1F5F9;
+      --surface-hover: rgba(15, 23, 42, 0.02);
+      --border: rgba(15,23,42,0.06);
+      --text: #0F172A;
+      --text-muted: #475569;
+      --shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* Loader */
+    #loader {
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 0.5s ease;
+    }
+
+    #loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .loader-spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .loader-text {
+      margin-top: 14px;
+      font-size: 13px;
+      color: var(--text-muted);
+    }
+
+    /* Top Bar */
+    .top-bar {
+      position: fixed;
+      top: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 8px 12px;
+      max-width: 560px;
+      width: calc(100% - 48px);
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding-right: 10px;
+      border-right: 1px solid var(--border);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .brand-logo {
+      width: 30px;
+      height: 30px;
+    }
+
+    .brand-name {
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: -0.3px;
+    }
+
+    .brand-tag {
+      font-size: 9px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .search-box {
+      flex: 1;
+      position: relative;
+    }
+
+    .search-input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      padding: 7px 10px;
+    }
+
+    .search-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    .search-results {
+      position: absolute;
+      top: calc(100% + 6px);
+      left: -10px;
+      right: -10px;
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      max-height: 240px;
+      overflow-y: auto;
+      display: none;
+    }
+
+    .search-results.active {
+      display: block;
+    }
+
+    .search-item {
+      padding: 8px 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      transition: background var(--transition);
+    }
+
+    .search-item:hover {
+      background: var(--surface-hover);
+    }
+
+    .search-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .theme-btn {
+      width: 32px;
+      height: 32px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all var(--transition);
+      flex-shrink: 0;
+    }
+
+    .theme-btn:hover {
+      background: var(--surface-hover);
+    }
+
+    /* Side Panel */
+    .side-panel {
+      position: fixed;
+      top: 90px;
+      left: 24px;
+      z-index: 1000;
+      width: 300px;
+      max-height: calc(100vh - 114px);
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+
+    .side-panel::-webkit-scrollbar {
+      width: 3px;
+    }
+
+    .side-panel::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px;
+    }
+
+    .card {
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+    }
+
+    .card-title {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-title i {
+      font-size: 14px;
+    }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .stat-card {
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      text-align: center;
+    }
+
+    .stat-card.total {
+      background: var(--accent-dim);
+    }
+
+    .stat-card.high {
+      background: var(--high-bg);
+    }
+
+    .stat-card.medium {
+      background: var(--medium-bg);
+    }
+
+    .stat-card.low {
+      background: var(--low-bg);
+    }
+
+    .stat-number {
+      font-family: var(--font-mono);
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1;
+    }
+
+    .stat-card.total .stat-number {
+      color: var(--accent);
+    }
+
+    .stat-card.high .stat-number {
+      color: var(--high);
+    }
+
+    .stat-card.medium .stat-number {
+      color: var(--medium);
+    }
+
+    .stat-card.low .stat-number {
+      color: var(--low);
+    }
+
+    .stat-label {
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      font-weight: 500;
+    }
+
+    /* Risk list */
+    .risk-list {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .risk-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      font-size: 12px;
+      transition: all var(--transition);
+    }
+
+    .risk-item:hover {
+      background: var(--surface-hover);
+      transform: translateX(3px);
+    }
+
+    .risk-rank {
+      width: 20px;
+      height: 20px;
+      border-radius: 5px;
+      background: var(--high-bg);
+      color: var(--high);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .risk-city {
+      flex: 1;
+      font-weight: 500;
+    }
+
+    .risk-conf {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    /* Insight */
+    .insight-box {
+      background: var(--accent-dim);
+      border: 1px solid rgba(59, 130, 246, 0.12);
+      border-radius: var(--radius-sm);
+      padding: 10px;
+      font-size: 11px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    .insight-box strong {
+      color: var(--accent);
+    }
+
+    /* Simulation */
+    .sim-group {
+      margin-bottom: 8px;
+    }
+
+    .sim-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-bottom: 3px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .sim-slider {
+      appearance: none;
+      -webkit-appearance: none;
+      width: 100%;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--border);
+      outline: none;
+    }
+
+    .sim-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--accent);
+      cursor: pointer;
+    }
+
+    .sim-result {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: var(--radius-sm);
+      text-align: center;
+      font-weight: 600;
+      font-size: 13px;
+      min-height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all var(--transition);
+    }
+
+    .sim-result.high {
+      background: var(--high-bg);
+      color: var(--high);
+    }
+
+    .sim-result.medium {
+      background: var(--medium-bg);
+      color: var(--medium);
+    }
+
+    .sim-result.low {
+      background: var(--low-bg);
+      color: var(--low);
+    }
+
+    .sim-result.idle {
+      background: var(--accent-dim);
+      color: var(--text-muted);
+      font-weight: 400;
+      font-size: 11px;
+    }
+
+    /* Legend */
+    .legend {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      z-index: 1000;
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 12px 16px;
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* Footer */
+    .footer-info {
+      position: fixed;
+      bottom: 24px;
+      right: 96px;
+      z-index: 1000;
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 8px 16px;
+      font-size: 11px;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .refresh-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 5px;
+      padding: 2px 6px;
+      cursor: pointer;
+      font-size: 10px;
+      font-family: var(--font);
+      transition: all var(--transition);
+    }
+
+    .refresh-btn:hover {
+      color: var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Leaflet popup override */
+    .leaflet-popup-content-wrapper {
+      background: var(--surface) !important;
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--border) !important;
+      border-radius: var(--radius) !important;
+      box-shadow: var(--shadow) !important;
+      color: var(--text) !important;
+      padding: 0 !important;
+      min-width: 300px;
+    }
+
+    .leaflet-popup-content {
+      margin: 0 !important;
+      width: auto !important;
+    }
+
+    .leaflet-popup-tip {
+      background: var(--surface) !important;
+    }
+
+    .leaflet-popup-close-button {
+      color: var(--text-muted) !important;
+      font-size: 18px !important;
+      right: 8px !important;
+      top: 8px !important;
+    }
+
+    .popup-card {
+      padding: 14px;
+    }
+
+    .popup-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .popup-city {
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .popup-badge {
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .popup-badge.high {
+      background: var(--high-bg);
+      color: var(--high);
+    }
+
+    .popup-badge.medium {
+      background: var(--medium-bg);
+      color: var(--medium);
+    }
+
+    .popup-badge.low {
+      background: var(--low-bg);
+      color: var(--low);
+    }
+
+    .popup-conf {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: auto;
+      font-weight: 500;
+    }
+
+    .popup-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 8px 0;
+    }
+
+    .popup-section {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .shap-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+
+    .shap-arrow {
+      font-size: 12px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .shap-text {
+      flex: 1;
+      line-height: 1.4;
+    }
+
+    .shap-strength {
+      font-size: 9px;
+      font-weight: 600;
+      text-transform: uppercase;
+      padding: 1px 5px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    .shap-strength.high {
+      background: var(--high-bg);
+      color: var(--high);
+    }
+
+    .shap-strength.medium {
+      background: var(--medium-bg);
+      color: var(--medium);
+    }
+
+    .shap-strength.low {
+      background: var(--low-bg);
+      color: var(--low);
+    }
+
+    .popup-driver {
+      font-size: 11px;
+      padding: 6px 8px;
+      border-radius: var(--radius-sm);
+      background: var(--accent-dim);
+      color: var(--accent);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .popup-tips {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    .popup-tip {
+      margin-bottom: 3px;
+    }
+
+    /* Tooltip */
+    .leaflet-tooltip {
+      background: var(--surface) !important;
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border) !important;
+      border-radius: 6px !important;
+      box-shadow: var(--shadow) !important;
+      color: var(--text) !important;
+      font-family: var(--font) !important;
+      font-size: 11px !important;
+      padding: 5px 8px !important;
+    }
+
+    .leaflet-tooltip::before {
+      border: none !important;
+    }
+
+    /* Cluster */
+    .marker-cluster {
+      background: transparent !important;
+    }
+
+    .marker-cluster div {
+      width: 34px !important;
+      height: 34px !important;
+      margin-left: 3px !important;
+      margin-top: 3px !important;
+      border-radius: 50% !important;
+      font-family: var(--font) !important;
+      font-weight: 700 !important;
+      font-size: 12px !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+
+    .custom-marker {
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      transition: transform var(--transition), box-shadow var(--transition);
+      box-shadow: 0 0 8px currentColor;
+    }
+
+    .custom-marker:hover {
+      transform: scale(1.1) !important;
+      box-shadow: 0 0 12px currentColor, 0 4px 12px rgba(0, 0, 0, 0.4);
+      z-index: 1000 !important;
+    }
+
+    .marker-cluster-small div {
+      background: rgba(5, 150, 105, 0.65);
+      color: #fff;
+    }
+
+    .marker-cluster-medium div {
+      background: rgba(217, 119, 6, 0.65);
+      color: #fff;
+    }
+
+    .marker-cluster-large div {
+      background: rgba(225, 29, 72, 0.65);
+      color: #fff;
+    }
+
+    @media (max-width: 768px) {
+      .side-panel {
+        display: none;
+      }
+
+      .top-bar {
+        max-width: 95%;
+      }
+
+      .legend {
+        left: 50%;
+        transform: translateX(-50%);
+      }
+    }
+
+    /* ═══ CHATBOT WIDGET — PREMIUM DARK THEME ═══ */
+    .chat-fab {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 2000;
+      width: 54px;
+      height: 54px;
+      border-radius: var(--radius);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--accent);
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      transition: all var(--transition);
+    }
+
+    .chat-fab:hover {
+      transform: scale(1.03);
+      background: var(--surface-hover);
+    }
+
+    .chat-fab.open {
+      transform: rotate(45deg);
+      background: rgba(239, 68, 68, 0.1);
+      border-color: rgba(239, 68, 68, 0.3);
+      color: #f87171
+    }
+
+    .chat-fab .fab-badge {
+      position: absolute;
+      top: -4px;
+      right: -4px;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: #3b82f6;
+      font-size: 10px;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid #0B1220;
+      opacity: 0;
+      transition: opacity .3s
+    }
+
+    .chat-fab .fab-badge.show {
+      opacity: 1
+    }
+
+    .chat-pulse {
+      position: absolute;
+      inset: -5px;
+      border-radius: 20px;
+      border: 1.5px solid rgba(59, 130, 246, 0.25);
+      animation: chatPulse 2.5s ease-out infinite
+    }
+
+    @keyframes chatPulse {
+      0% {
+        transform: scale(1);
+        opacity: .5
+      }
+
+      100% {
+        transform: scale(1.35);
+        opacity: 0
+      }
+    }
+
+    .chat-window {
+      position: fixed;
+      bottom: 92px;
+      right: 24px;
+      z-index: 2000;
+      width: 400px;
+      height: 580px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      opacity: 0;
+      transform: translateY(16px) scale(.97);
+      pointer-events: none;
+      transition: all var(--transition);
+    }
+
+    .chat-window.open {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: all
+    }
+
+    .chat-header {
+      padding: 16px 18px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0
+    }
+
+    .chat-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: rgba(59, 130, 246, 0.1);
+      border: 1px solid rgba(59, 130, 246, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0
+    }
+
+    .chat-header-info {
+      flex: 1
+    }
+
+    .chat-header-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #e2e8f0;
+      letter-spacing: -0.2px
+    }
+
+    .chat-header-sub {
+      font-size: 11px;
+      color: #64748b;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 2px
+    }
+
+    .chat-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+      animation: statusPulse 2.5s ease-in-out infinite
+    }
+
+    @keyframes statusPulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: .45
+      }
+    }
+
+    .chat-lang-select {
+      background: rgba(148, 163, 184, 0.06);
+      border: 1px solid rgba(148, 163, 184, 0.1);
+      border-radius: 6px;
+      color: #94a3b8;
+      font-family: var(--font);
+      font-size: 11px;
+      padding: 5px 8px;
+      cursor: pointer;
+      outline: none;
+      transition: border-color .2s
+    }
+
+    .chat-lang-select:hover {
+      border-color: rgba(59, 130, 246, 0.3)
+    }
+
+    .chat-lang-select option {
+      background: #111827;
+      color: #e2e8f0
+    }
+
+    .chat-close-btn {
+      width: 30px;
+      height: 30px;
+      border-radius: 8px;
+      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.08);
+      color: #64748b;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      transition: all .2s
+    }
+
+    .chat-close-btn:hover {
+      background: rgba(239, 68, 68, 0.08);
+      color: #f87171;
+      border-color: rgba(239, 68, 68, 0.2)
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+      background: var(--bg)
+    }
+
+    .chat-messages::-webkit-scrollbar {
+      width: 4px
+    }
+
+    .chat-messages::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 2px
+    }
+
+    .chat-msg {
+      max-width: 88%;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      animation: msgIn .35s ease
+    }
+
+    @keyframes msgIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .chat-msg.bot {
+      align-self: flex-start
+    }
+
+    .chat-msg.user {
+      align-self: flex-end
+    }
+
+    .chat-msg-bubble {
+      padding: 12px 16px;
+      border-radius: 14px;
+      font-size: 13px;
+      line-height: 1.65;
+      word-wrap: break-word;
+      white-space: pre-wrap;
+      letter-spacing: -0.1px
+    }
+
+    .chat-msg.bot .chat-msg-bubble {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-bottom-left-radius: 4px;
+      color: var(--text);
+    }
+
+    .chat-msg.user .chat-msg-bubble {
+      background: var(--accent);
+      color: #fff;
+      border-bottom-right-radius: 4px;
+      border: none
+    }
+
+    .chat-msg-time {
+      font-size: 10px;
+      color: #475569;
+      padding: 0 6px
+    }
+
+    .chat-msg.user .chat-msg-time {
+      text-align: right
+    }
+
+    .chat-msg-bubble strong,
+    .chat-msg-bubble b {
+      font-weight: 600;
+      color: #e2e8f0
+    }
+
+    .chat-msg-bubble em,
+    .chat-msg-bubble i:not([class]) {
+      font-style: italic;
+      color: #94a3b8
+    }
+
+    .chat-typing {
+      align-self: flex-start;
+      display: flex;
+      gap: 5px;
+      padding: 12px 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      border-bottom-left-radius: 4px
+    }
+
+    .chat-typing span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #475569;
+      animation: typingBounce .5s ease-in-out infinite alternate
+    }
+
+    .chat-typing span:nth-child(2) {
+      animation-delay: .12s
+    }
+
+    .chat-typing span:nth-child(3) {
+      animation-delay: .24s
+    }
+
+    @keyframes typingBounce {
+      from {
+        transform: translateY(0);
+        opacity: .4
+      }
+
+      to {
+        transform: translateY(-6px);
+        opacity: 1
+      }
+    }
+
+    .chat-suggestions {
+      padding: 8px 18px 12px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      background: var(--bg)
+    }
+
+    .chat-chip {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 11.5px;
+      font-family: var(--font);
+      font-weight: 500;
+      background: var(--inset);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap
+    }
+
+    .chat-chip:hover {
+      background: var(--surface-hover);
+      border-color: var(--accent);
+      transform: scale(1.02)
+    }
+
+    .chat-input-area {
+      padding: 12px 18px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+      background: var(--surface)
+    }
+
+    .chat-input {
+      flex: 1;
+      background: var(--inset);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 13px;
+      outline: none;
+      transition: border var(--transition), background var(--transition)
+    }
+
+    .chat-input::placeholder {
+      color: var(--text-muted)
+    }
+
+    .chat-input:focus {
+      border-color: var(--accent);
+    }
+
+    .chat-send-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: var(--accent);
+      border: none;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all var(--transition);
+      flex-shrink: 0
+    }
+
+    .chat-send-btn:hover {
+      background: var(--accent);
+      transform: scale(1.05);
+      box-shadow: 0 4px 16px var(--accent-dim)
+    }
+
+    .chat-send-btn:disabled {
+      opacity: .3;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none
+    }
+
+    @media(max-width:480px) {
+      .chat-window {
+        right: 8px;
+        left: 8px;
+        width: auto;
+        bottom: 80px;
+        height: calc(100vh - 100px);
+        border-radius: 12px
+      }
+
+      .chat-fab {
+        bottom: 16px;
+        right: 16px;
+        width: 48px;
+        height: 48px;
+        font-size: 20px
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div id="loader">
+    <div class="loader-spinner"></div>
+    <div class="loader-text">Initializing EPIDRA…</div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="top-bar">
+    <div class="brand">
+      <svg class="brand-logo" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 4 C12 4 6 10 6 18 C6 26 12 36 20 36 C28 36 34 26 34 18 C34 10 28 4 20 4Z" fill="none"
+          stroke="#3b82f6" stroke-width="2.5" />
+        <path d="M20 10 C15 10 11 14 11 18 C11 24 15 30 20 30 C25 30 29 24 29 18 C29 14 25 10 20 10Z" fill="none"
+          stroke="#3b82f6" stroke-width="1.5" opacity="0.5" />
+        <path d="M8 20 L14 20 L16 15 L18 25 L20 13 L22 27 L24 17 L26 20 L32 20" stroke="#3b82f6" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round" />
+        <circle cx="20" cy="18" r="2" fill="#3b82f6" />
+      </svg>
+      <div>
+        <div class="brand-name">EPIDRA</div>
+        <div class="brand-tag">Epidemic Risk Intelligence</div>
+      </div>
+    </div>
+    <div class="search-box">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search city…" autocomplete="off" />
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <button class="theme-btn" id="themeToggle" title="Toggle theme"><i class="ph ph-moon"></i></button>
+  </div>
+
+  <div class="side-panel" id="sidePanel">
+    <div class="card">
+      <div class="card-title"><i class="ph ph-chart-bar"></i> Dashboard</div>
+      <div class="stats-grid">
+        <div class="stat-card total">
+          <div class="stat-number" id="statTotal">–</div>
+          <div class="stat-label">Cities</div>
+        </div>
+        <div class="stat-card high">
+          <div class="stat-number" id="statHigh">–</div>
+          <div class="stat-label">High Risk</div>
+        </div>
+        <div class="stat-card medium">
+          <div class="stat-number" id="statMedium">–</div>
+          <div class="stat-label">Medium</div>
+        </div>
+        <div class="stat-card low">
+          <div class="stat-number" id="statLow">–</div>
+          <div class="stat-label">Low Risk</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ph ph-warning-circle"></i> High-Risk Cities</div>
+      <div class="risk-list" id="topRiskList"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ph ph-lightning"></i> Insight</div>
+      <div class="insight-box" id="insightBox">Loading…</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title"><i class="ph ph-sliders-horizontal"></i> What-If Simulation</div>
+      <div class="sim-group">
+        <div class="sim-label"><span>Rainfall (7d mm)</span><span id="rainVal">40</span></div>
+        <input type="range" class="sim-slider" id="simRainfall" min="0" max="200" value="40" />
+      </div>
+      <div class="sim-group">
+        <div class="sim-label"><span>Humidity (%)</span><span id="humVal">65</span></div>
+        <input type="range" class="sim-slider" id="simHumidity" min="10" max="100" value="65" />
+      </div>
+      <div class="sim-group">
+        <div class="sim-label"><span>Temperature (°C)</span><span id="tempVal">28</span></div>
+        <input type="range" class="sim-slider" id="simTemp" min="5" max="45" value="28" />
+      </div>
+      <div class="sim-result idle" id="simResult">Adjust sliders to simulate</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--high)"></div>High
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--medium)"></div>Medium
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--low)"></div>Low
+    </div>
+    <div class="legend-item">
+      <div class="legend-dot" style="background:var(--high-bg);border:1.5px dashed var(--high)"></div>Cluster
+    </div>
+  </div>
+
+  <div class="footer-info">
+    <i class="ph ph-clock"></i>
+    <span>Updated: <span id="lastUpdated">–</span></span>
+    <button class="refresh-btn" id="refreshBtn"><i class="ph ph-arrow-clockwise"></i> Refresh</button>
+  </div>
+
+  <!-- CHATBOT WIDGET — PREMIUM DARK THEME -->
+  <button class="chat-fab" id="chatFab" title="EPIDRA Assistant">
+    <div class="chat-pulse"></div>
+    <i class="ph ph-chat-teardrop-text"></i>
+    <div class="fab-badge" id="chatBadge">1</div>
+  </button>
+
+  <div class="chat-window" id="chatWindow">
+    <div class="chat-header">
+      <div class="chat-avatar"><i class="ph ph-dna" style="color:#60a5fa;font-size:20px"></i></div>
+      <div class="chat-header-info">
+        <div class="chat-header-title">EPIDRA Assistant</div>
+        <div class="chat-header-sub"><span class="chat-status-dot"></span> Online · Gemini-powered</div>
+      </div>
+      <select class="chat-lang-select" id="chatLang" title="Language">
+        <option value="en">EN</option>
+        <option value="hi">हिन्दी</option>
+        <option value="as">অসমীয়া</option>
+      </select>
+      <button class="chat-close-btn" id="chatClose" title="Close"><i class="ph ph-x"></i></button>
+    </div>
+    <div class="chat-messages" id="chatMessages"></div>
+    <div class="chat-suggestions" id="chatSuggestions"></div>
+    <div class="chat-input-area">
+      <input type="text" class="chat-input" id="chatInput" placeholder="Type a city, state, or disease question…"
+        autocomplete="off" />
+      <button class="chat-send-btn" id="chatSend" title="Send"><i class="ph ph-arrow-up"></i></button>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://localhost:8000";
+    let districts = [], detailCache = {}, map, cluster, hotspots = [], markerMap = {}, isDark = true;
+
+    const TILES = {
+      dark: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      light: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+    };
+    const ATTR = '&copy; <a href="https://carto.com/">CARTO</a>';
+    const COLORS = { High: "#E11D48", Medium: "#D97706", Low: "#059669" };
+    let tileLayer;
+
+    function initMap() {
+      map = L.map("map", { center: [22.5, 82], zoom: 5, zoomControl: false, attributionControl: false });
+      L.control.zoom({ position: "bottomright" }).addTo(map);
+      tileLayer = L.tileLayer(TILES.dark, { attribution: ATTR, maxZoom: 18, subdomains: "abcd" }).addTo(map);
+
+      cluster = L.markerClusterGroup({
+        maxClusterRadius: 35,
+        showCoverageOnHover: false,
+        animate: true,
+        animateAddingMarkers: true,
+        iconCreateFunction(c) {
+          const ms = c.getAllChildMarkers();
+          const hr = ms.filter(m => m.options._risk === "High").length / ms.length;
+          const cls = hr > 0.5 ? "marker-cluster-large" : hr > 0.2 ? "marker-cluster-medium" : "marker-cluster-small";
+          return L.divIcon({ html: `<div>${ms.length}</div>`, className: `marker-cluster ${cls}`, iconSize: L.point(40, 40) });
+        },
+      });
+      map.addLayer(cluster);
+    }
+
+    function createMarker(d) {
+      const color = COLORS[d.risk] || "#888";
+      const sz = d.risk === "High" ? 14 : d.risk === "Medium" ? 12 : 10;
+      const icon = L.divIcon({
+        className: "",
+        html: `<div class="custom-marker" style="width:${sz}px;height:${sz}px;background:${color};color:${color};"></div>`,
+        iconSize: [sz, sz], iconAnchor: [sz / 2, sz / 2],
+      });
+      const m = L.marker([d.latitude, d.longitude], { icon, _risk: d.risk, _id: d.id });
+      const city = d.city.replace(/_/g, " ");
+      m.bindTooltip(`${city} · ${d.risk} · ${(d.model_confidence * 100).toFixed(0)}%`, { direction: "top", offset: [0, -8] });
+      m.on("click", () => openPopup(d, m));
+      markerMap[d.id] = m;
+      return m;
+    }
+
+    async function openPopup(d, m) {
+      const city = d.city.replace(/_/g, " ");
+      const rc = d.risk.toLowerCase();
+      window.currentCityContext = city; // Store globally for Chatbot
+      m.bindPopup(`<div class="popup-card"><div class="popup-header"><span class="popup-city">${city}</span><span class="popup-badge ${rc}">${d.risk}</span></div><div style="text-align:center;padding:12px 0;font-size:11px;color:var(--text-muted)">Loading analysis…</div></div>`).openPopup();
+
+      try {
+        let det = detailCache[d.id];
+        if (!det) {
+          const r = await fetch(`${API}/districts/${d.id}`);
+          det = await r.json();
+          detailCache[d.id] = det;
+        }
+
+        const tipsHTML = (det.prevention_tips || []).map(t => `<div class="popup-tip">• ${t}</div>`).join("");
+        
+        const actionsHTML = (det.recommended_actions || []).map(a => `
+          <div style="margin-bottom:8px;background:var(--inset);padding:8px;border-radius:8px;border:1px solid var(--border)">
+            <div style="font-size:11px;font-weight:600;color:var(--text)">• ${a.action}</div>
+            <div style="font-size:10px;color:var(--text-muted);margin-left:10px;margin-top:4px"><em>Why:</em> ${a.rationale}</div>
+          </div>
+        `).join("");
+
+        const attrHTML = `
+          ${det.source_attribution?.weather_driven?.length ? `<div style="font-size:10px"><span style="color:var(--accent)">Weather:</span> ${det.source_attribution.weather_driven.join(", ")}</div>` : ''}
+          ${det.source_attribution?.environmental?.length ? `<div style="font-size:10px;margin-top:2px"><span style="color:var(--low)">Environmental:</span> ${det.source_attribution.environmental.join(", ")}</div>` : ''}
+          ${det.source_attribution?.secondary?.length ? `<div style="font-size:10px;margin-top:2px"><span style="color:var(--text-muted)">Secondary:</span> ${det.source_attribution.secondary.join(", ")}</div>` : ''}
+        `;
+
+        const priorityColor = det.priority_label === "CRITICAL" ? "var(--high)" : (det.priority_label === "HIGH" ? "var(--medium)" : "var(--low)");
+
+        m.setPopupContent(`
+      <div class="popup-card" style="max-height:450px;overflow-y:auto;padding-right:6px;">
+        <div class="popup-header">
+          <span class="popup-city">${city}</span>
+          <span class="popup-badge ${rc}">${d.risk}</span>
+          <span class="popup-conf" style="font-family:var(--font-mono)">${(d.model_confidence * 100).toFixed(0)}%</span>
+        </div>
+        
+        <div style="display:flex;gap:6px;margin-top:10px;font-size:10px;font-weight:600">
+          <span style="background:var(--surface-hover);padding:3px 6px;border-radius:6px;border:1px solid var(--border)">${det.alert_level}</span>
+          <span style="background:var(--surface-hover);padding:3px 6px;border-radius:6px;border:1px solid var(--border);color:${priorityColor}">${det.priority_label} PRIORITY</span>
+        </div>
+        
+        <div class="popup-divider"></div>
+        <div class="popup-section"><i class="ph ph-article"></i> Narrative</div>
+        <div style="font-size:11px;line-height:1.5;color:var(--text);margin-top:6px">${det.risk_narrative}</div>
+        
+        <div class="popup-divider"></div>
+        <div class="popup-section"><i class="ph ph-target"></i> Dominant Cause</div>
+        <div class="popup-driver" style="margin-top:6px"><i class="ph ph-crosshair"></i> ${det.dominant_driver}</div>
+        <div style="margin-top:6px;background:var(--inset);padding:6px;border-radius:6px;line-height:1.3">
+          ${attrHTML}
+        </div>
+
+        <div class="popup-divider"></div>
+        <div class="popup-section"><i class="ph ph-trend-up"></i> Expected Impact</div>
+        <div style="font-size:11px;line-height:1.5;color:var(--text);margin-top:6px;border-left:2px solid var(--high);padding-left:8px">${det.expected_impact}</div>
+
+        <div class="popup-divider"></div>
+        <div class="popup-section"><i class="ph ph-warning-circle"></i> Operational Actions (${det.response_window})</div>
+        <div style="margin-top:8px">
+          ${actionsHTML}
+        </div>
+
+        <div class="popup-divider"></div>
+        <div class="popup-section"><i class="ph ph-shield-check"></i> Prevention Tips</div>
+        <div class="popup-tips" style="margin-top:6px">${tipsHTML}</div>
+      </div>
+    `);
+      } catch (e) { console.error("Popup fetch failed:", e); }
+    }
+
+    function renderHotspots() {
+      hotspots.forEach(l => map.removeLayer(l));
+      hotspots = [];
+      const high = districts.filter(d => d.risk === "High");
+      if (!high.length) return;
+
+      const visited = new Set(), groups = [];
+      high.forEach(c => {
+        if (visited.has(c.id)) return;
+        const g = [c]; visited.add(c.id);
+        high.forEach(o => {
+          if (!visited.has(o.id) && haversine(c.latitude, c.longitude, o.latitude, o.longitude) < 150) {
+            g.push(o); visited.add(o.id);
+          }
+        });
+        if (g.length >= 2) groups.push(g);
+      });
+
+      groups.forEach(g => {
+        const lat = g.reduce((s, c) => s + c.latitude, 0) / g.length;
+        const lon = g.reduce((s, c) => s + c.longitude, 0) / g.length;
+        let maxD = 0;
+        g.forEach(c => { const d = haversine(lat, lon, c.latitude, c.longitude); if (d > maxD) maxD = d; });
+        const r = Math.max(maxD + 25, 40) * 1000;
+
+        const z = L.circle([lat, lon], {
+          radius: r, fillColor: "#E11D48", fillOpacity: 0.06,
+          color: "#E11D48", weight: 1.5, opacity: 0.2, dashArray: "6 3",
+        }).addTo(map);
+        z.bindTooltip(`High Risk Cluster (${g.length} cities)`, { sticky: true });
+        hotspots.push(z);
+      });
+    }
+
+    function haversine(la1, lo1, la2, lo2) {
+      const R = 6371, dLa = (la2 - la1) * Math.PI / 180, dLo = (lo2 - lo1) * Math.PI / 180;
+      const a = Math.sin(dLa / 2) ** 2 + Math.cos(la1 * Math.PI / 180) * Math.cos(la2 * Math.PI / 180) * Math.sin(dLo / 2) ** 2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    }
+
+    function updateDashboard() {
+      const h = districts.filter(d => d.risk === "High").length;
+      const m = districts.filter(d => d.risk === "Medium").length;
+      const l = districts.filter(d => d.risk === "Low").length;
+      anim("statTotal", districts.length); anim("statHigh", h); anim("statMedium", m); anim("statLow", l);
+
+      const top5 = districts.filter(d => d.risk === "High").sort((a, b) => b.priority_score - a.priority_score).slice(0, 5);
+      document.getElementById("topRiskList").innerHTML = top5.map((d, i) => `
+    <div class="risk-item" onclick="flyTo(${d.id})">
+      <div class="risk-rank">${i + 1}</div>
+      <div class="risk-city" style="display:flex;flex-direction:column;gap:2px;">
+        <span>${d.city.replace(/_/g, " ")}</span>
+        <span style="font-size:9px;color:${d.priority_score >= 75 ? 'var(--high)' : 'var(--medium)'};font-weight:600">PRIORITY SCORE: ${d.priority_score}</span>
+      </div>
+      <div class="risk-conf">${(d.model_confidence * 100).toFixed(0)}%</div>
+    </div>`).join("");
+
+      const pct = ((h / districts.length) * 100).toFixed(0);
+      const neList = ["Guwahati", "Dibrugarh", "Silchar", "Tezpur", "Tinsukia", "Imphal", "Thoubal", "Shillong", "Tura", "Aizawl", "Lunglei", "Kohima", "Dimapur", "Itanagar", "Naharlagun", "Agartala", "Udaipur_Tripura", "Gangtok", "Siliguri"];
+      const neH = districts.filter(d => d.risk === "High" && neList.includes(d.city)).length;
+      let ins = `<strong>${pct}%</strong> of locations (${h}/${districts.length}) at <strong>high risk</strong>. `;
+      if (neH > 0) ins += `Northeast India: <strong>${neH} high-risk</strong> cities — rainfall & humidity are key drivers. `;
+      ins += `Primary factors: <strong>temperature</strong>, <strong>humidity</strong>, <strong>rainfall interaction</strong>.`;
+      document.getElementById("insightBox").innerHTML = ins;
+    }
+
+    function anim(id, target) {
+      const el = document.getElementById(id); let cur = 0;
+      const s = Math.max(1, Math.ceil(target / 15));
+      const iv = setInterval(() => { cur = Math.min(cur + s, target); el.textContent = cur; if (cur >= target) clearInterval(iv); }, 25);
+    }
+
+    function flyTo(id) {
+      const d = districts.find(x => x.id === id);
+      if (!d) return;
+      map.flyTo([d.latitude, d.longitude], 10, { duration: 1 });
+      setTimeout(() => { const m = markerMap[id]; if (m) openPopup(d, m); }, 1100);
+    }
+
+    function initSearch() {
+      const inp = document.getElementById("searchInput"), res = document.getElementById("searchResults");
+      inp.addEventListener("input", () => {
+        const q = inp.value.trim().toLowerCase();
+        if (q.length < 1) { res.classList.remove("active"); return; }
+        const matches = districts.filter(d => d.city.toLowerCase().replace(/_/g, " ").includes(q)).slice(0, 6);
+        if (!matches.length) { res.classList.remove("active"); return; }
+        res.innerHTML = matches.map(d => `
+      <div class="search-item" onclick="flyTo(${d.id}); document.getElementById('searchResults').classList.remove('active'); document.getElementById('searchInput').value='';">
+        <div class="search-dot" style="background:${COLORS[d.risk]}"></div>
+        <span>${d.city.replace(/_/g, " ")}</span>
+        <span style="margin-left:auto;font-size:10px;color:var(--text-muted)">${d.risk} · ${(d.model_confidence * 100).toFixed(0)}%</span>
+      </div>`).join("");
+        res.classList.add("active");
+      });
+      document.addEventListener("click", e => { if (!e.target.closest(".search-box")) res.classList.remove("active"); });
+    }
+
+    function initTheme() {
+      document.getElementById("themeToggle").addEventListener("click", () => {
+        isDark = !isDark;
+        document.body.classList.toggle("light-theme", !isDark);
+        document.querySelector("#themeToggle i").className = isDark ? "ph ph-moon" : "ph ph-sun";
+        map.removeLayer(tileLayer);
+        tileLayer = L.tileLayer(isDark ? TILES.dark : TILES.light, { attribution: ATTR, maxZoom: 18, subdomains: "abcd" }).addTo(map);
+      });
+    }
+
+    function initSim() {
+      const rain = document.getElementById("simRainfall"), hum = document.getElementById("simHumidity"), temp = document.getElementById("simTemp");
+      const rv = document.getElementById("rainVal"), hv = document.getElementById("humVal"), tv = document.getElementById("tempVal");
+      const out = document.getElementById("simResult");
+      let timer;
+      function onChange() {
+        rv.textContent = rain.value; hv.textContent = hum.value; tv.textContent = temp.value;
+        clearTimeout(timer); out.className = "sim-result idle"; out.textContent = "Predicting…";
+        timer = setTimeout(async () => {
+          try {
+            const r = await fetch(`${API}/predict`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ rainfall: +rain.value, temperature: +temp.value, humidity: +hum.value }),
+            });
+            const d = await r.json();
+            const c = d.risk.toLowerCase();
+            out.className = `sim-result ${c}`;
+            out.innerHTML = `${d.risk} Risk · ${(d.model_confidence * 100).toFixed(0)}%`;
+          } catch { out.className = "sim-result idle"; out.textContent = "API unavailable"; }
+        }, 350);
+      }
+      rain.addEventListener("input", onChange);
+      hum.addEventListener("input", onChange);
+      temp.addEventListener("input", onChange);
+    }
+
+    async function loadData() {
+      try {
+        const r = await fetch(`${API}/districts`);
+        districts = await r.json();
+        cluster.clearLayers(); markerMap = {};
+        districts.forEach(d => cluster.addLayer(createMarker(d)));
+        renderHotspots();
+        updateDashboard();
+        const h = await (await fetch(`${API}/health`)).json();
+        document.getElementById("lastUpdated").textContent = h.latest_date || "–";
+        document.getElementById("loader").classList.add("hidden");
+      } catch (e) {
+        console.error("Load failed:", e);
+        document.querySelector(".loader-text").textContent = "Cannot connect to API. Is backend running?";
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initMap(); initSearch(); initTheme(); initSim(); initChatbot();
+      document.getElementById("refreshBtn").addEventListener("click", () => { detailCache = {}; loadData(); });
+      loadData();
+    });
+
+    /* ═══ CHATBOT ENGINE ═══ */
+    function initChatbot() {
+      const fab = document.getElementById("chatFab");
+      const win = document.getElementById("chatWindow");
+      const closeBtn = document.getElementById("chatClose");
+      const input = document.getElementById("chatInput");
+      const sendBtn = document.getElementById("chatSend");
+      const msgBox = document.getElementById("chatMessages");
+      const sugBox = document.getElementById("chatSuggestions");
+      const langSel = document.getElementById("chatLang");
+      const badge = document.getElementById("chatBadge");
+      let chatOpen = false, sending = false, firstOpen = true;
+
+      function toggleChat() {
+        chatOpen = !chatOpen;
+        win.classList.toggle("open", chatOpen);
+        fab.classList.toggle("open", chatOpen);
+        badge.classList.remove("show");
+        if (chatOpen && firstOpen) {
+          firstOpen = false;
+          addBotMsg("Hello! 👋 I'm EPIDRA's AI assistant — here to help with epidemic risk analysis.\n\n💡 Ask me about:\n• City risk levels (e.g. 'Guwahati' or 'Sikkim')\n• Why a city is at risk\n• Prevention tips\n• Disease information (cholera, dengue, etc.)");
+          setSuggestions(["Check Guwahati", "Sikkim risk", "Prevention tips", "What is dengue?"]);
+        }
+        if (chatOpen) setTimeout(() => input.focus(), 350);
+      }
+
+      fab.addEventListener("click", toggleChat);
+      closeBtn.addEventListener("click", toggleChat);
+
+      // Show badge after 3s
+      setTimeout(() => { if (!chatOpen) badge.classList.add("show"); }, 3000);
+
+      function formatText(t) {
+        return t.replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>").replace(/_(.*?)_/g, "<em>$1</em>");
+      }
+
+      function timeStr() {
+        return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      }
+
+      function addBotMsg(text) {
+        const div = document.createElement("div");
+        div.className = "chat-msg bot";
+        div.innerHTML = `<div class="chat-msg-bubble">${formatText(text)}</div><div class="chat-msg-time">${timeStr()}</div>`;
+        msgBox.appendChild(div);
+        msgBox.scrollTop = msgBox.scrollHeight;
+      }
+
+      function addUserMsg(text) {
+        const div = document.createElement("div");
+        div.className = "chat-msg user";
+        div.innerHTML = `<div class="chat-msg-bubble">${formatText(text)}</div><div class="chat-msg-time">${timeStr()}</div>`;
+        msgBox.appendChild(div);
+        msgBox.scrollTop = msgBox.scrollHeight;
+      }
+
+      function showTyping() {
+        const div = document.createElement("div");
+        div.className = "chat-typing";
+        div.id = "chatTypingIndicator";
+        div.innerHTML = "<span></span><span></span><span></span>";
+        msgBox.appendChild(div);
+        msgBox.scrollTop = msgBox.scrollHeight;
+      }
+
+      function hideTyping() {
+        const el = document.getElementById("chatTypingIndicator");
+        if (el) el.remove();
+      }
+
+      function setSuggestions(items) {
+        sugBox.innerHTML = items.map(s => `<button class="chat-chip">${s}</button>`).join("");
+        sugBox.querySelectorAll(".chat-chip").forEach(btn => {
+          btn.addEventListener("click", () => sendMessage(btn.textContent));
+        });
+      }
+
+      async function sendMessage(text) {
+        if (!text.trim() || sending) return;
+        sending = true;
+        sendBtn.disabled = true;
+        addUserMsg(text);
+        input.value = "";
+        sugBox.innerHTML = "";
+        showTyping();
+
+        try {
+          const payload = { message: text, language: langSel.value };
+          if (window.currentCityContext) payload.context_city = window.currentCityContext;
+          const r = await fetch(`${API}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          const d = await r.json();
+          hideTyping();
+          addBotMsg(d.reply);
+          if (d.suggestions && d.suggestions.length) setSuggestions(d.suggestions);
+        } catch (e) {
+          hideTyping();
+          addBotMsg("⚠️ Could not connect to EPIDRA backend. Please try again.");
+        }
+        sending = false;
+        sendBtn.disabled = false;
+        input.focus();
+      }
+
+      sendBtn.addEventListener("click", () => sendMessage(input.value));
+      input.addEventListener("keydown", e => { if (e.key === "Enter") sendMessage(input.value); });
+    }
+  </script>
+</body>
+
+</html>
